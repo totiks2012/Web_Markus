@@ -55,4 +55,4 @@ WebMarkus is an ultra-lightweight Markdown editor with live preview, packaged in
 
 1.  Скачайте файл `WebMarcus-026.html`.
 2.  Дважды кликните по нему.
-3.  Вы пространстве созидания!
+3.  И вы в пространстве созидания!
