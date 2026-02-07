@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebMarkus - Stable Edition</title>
+    <style>
+        :root { --bg: #ffffff; --text: #333; --border: #ccc; --panel: #f0f0f0; --accent: #007acc; }
+        [data-theme="dark"] { --bg: #1e1e1e; --text: #d4d4d4; --border: #444; --panel: #2d2d2d; --accent: #0d7acc; }
+
+        body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+        .app { display: flex; flex-direction: column; height: 100vh; }
+
+        .toolbar, .search-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--border); z-index: 10; }
+        .search-bar { display: none; background: var(--bg); }
+        .search-bar input { padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); width: 140px; }
+        .search-stats { font-size: 11px; min-width: 55px; text-align: center; color: var(--text); opacity: 0.7; font-weight: bold; }
+
+        .container { display: flex; flex: 1; overflow: hidden; position: relative; }
+        textarea, .preview { flex: 1; padding: 30px; border: none; outline: none; overflow-y: auto; box-sizing: border-box; line-height: 1.7; scroll-behavior: smooth; }
+        textarea { background: var(--bg); color: var(--text); border-right: 1px solid var(--border); resize: none; white-space: pre-wrap; }
+        .preview { background: var(--bg); }
+
+        button, select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        button:hover, select:hover { border-color: var(--accent); background: var(--panel); }
+
+        .preview pre { background: var(--panel); padding: 15px; border-radius: 6px; overflow-x: auto; border: 1px solid var(--border); margin: 1em 0; }
+        .preview code { font-family: 'Consolas', monospace; font-size: 0.95em; }
+        .preview code:not(pre code) { background: rgba(0,0,0,0.05); padding: 2px 5px; border-radius: 4px; color: #d73a49; }
+
+        .preview h1, .preview h2, .preview h3 { border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-top: 1.2em; }
+        .preview blockquote { border-left: 5px solid var(--accent); padding-left: 15px; color: #666; font-style: italic; margin: 1em 0; }
+        .preview img { max-width: 100%; height: auto; border-radius: 6px; display: block; margin: 15px 0; border: 1px solid var(--border); }
+
+        .footer { display: flex; justify-content: flex-end; padding: 5px 15px; background: var(--panel); border-top: 1px solid var(--border); font-size: 11px; color: #888; }
+        .footer span { margin-left: 15px; }
+
+        @media print {
+            .toolbar, .search-bar, .footer, textarea { display: none !important; }
+            .container, .preview { display: block !important; overflow: visible !important; height: auto !important; padding: 0; }
+        }
+    </style>
+</head>
+<body data-theme="light">
+<div class="app">
+    <div class="toolbar">
+        <input type="file" id="fileInput" style="display:none" accept=".md,.txt">
+        <button onclick="document.getElementById('fileInput').click()" title="Открыть (Alt+O)">📂</button>
+        <div style="width: 1px; background: var(--border); height: 20px; margin: 0 4px;"></div>
+
+        <button onclick="insertMD('**', '**')" title="Жирный (Alt+B)">B</button>
+        <button onclick="insertMD('*', '*')" title="Курсив (Alt+I)">I</button>
+        <button onclick="insertMD('<u>', '</u>')" title="Подчеркнутый (Alt+U)">U</button>
+
+        <div style="width: 1px; background: var(--border); height: 20px; margin: 0 4px;"></div>
+
+        <button onclick="insertMD('# ', '')" title="Заголовок H1">H1</button>
+        <button onclick="insertMD('## ', '')" title="Заголовок H2">H2</button>
+        <button onclick="insertMD('### ', '')" title="Заголовок H3">H3</button>
+        <button onclick="insertMD('> ', '')" title="Цитата">»</button>
+        <button onclick="insertMD('- ', '')" title="Список">•</button>
+
+        <div style="width: 1px; background: var(--border); height: 20px; margin: 0 4px;"></div>
+
+        <button onclick="insertMD('`', '`')" title="Код (Alt+/)">` `</button>
+        <button onclick="insertMD('```\n', '\n```')" title="Блок кода">Code</button>
+        <button onclick="insertMD('![Alt](', ')')" title="Вставить изображение">🖼️</button>
+        <button onclick="insertMD('[', '](https://)')" title="Вставить ссылку">🔗</button>
+        <button onclick="toggleSearch()" title="Поиск (Ctrl+Alt+F)">🔍</button>
+
+        <select id="fontFamily" onchange="updateStyle()">
+            <option value="-apple-system, sans-serif">System Sans</option>
+            <option value="'Segoe UI', sans-serif">Segoe UI</option>
+            <option value="'Consolas', monospace">Consolas</option>
+        </select>
+
+        <select id="fontSize" onchange="updateStyle()">
+            <option value="14px">14</option>
+            <option value="16px" selected>16</option>
+            <option value="18px">18</option>
+        </select>
+
+        <span style="flex-grow: 1;"></span>
+        <button onclick="window.print()" title="Печать/PDF (Ctrl+Alt+P)">🖨️</button>
+        <button onclick="toggleTheme()" title="Сменить тему">🌓</button>
+        <button onclick="exportFile('md')" title="Сохранить как Markdown (Alt+S)">MD</button>
+        <button onclick="exportHTML()" title="Экспорт в HTML">🌐</button>
+        <button onclick="newDoc()" title="Очистить документ">🗑️</button>
+    </div>
+
+    <div id="searchBar" class="search-bar">
+        <input type="text" id="findInput" placeholder="Найти..." oninput="initSearch()">
+        <span class="search-stats" id="searchStats">0 / 0</span>
+        <button onclick="navSearch(-1)">↑</button>
+        <button onclick="navSearch(1)">↓</button>
+        <div style="width: 1px; background: var(--border); height: 20px; margin: 0 4px;"></div>
+        <input type="text" id="replaceInput" placeholder="Заменить на...">
+        <button onclick="execReplace(false)">Заменить</button>
+        <button onclick="execReplace(true)">Всё</button>
+        <button onclick="toggleSearch()">×</button>
+    </div>
+
+    <div class="container">
+        <textarea id="editor" spellcheck="false" placeholder="Пишите здесь..."></textarea>
+        <div id="preview" class="preview"></div>
+    </div>
+
+    <div class="footer">
+        <span id="wordCount">Слов: 0</span>
+        <span id="charCount">Символов: 0</span>
+    </div>
+</div>
+
+<script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const fontSelect = document.getElementById('fontFamily');
+    const sizeSelect = document.getElementById('fontSize');
+    let isSyncing = false, searchMatches = [], currentMatchIdx = -1;
+
+    function escapeHTML(str) {
+        return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function updateStyle() {
+        editor.style.fontFamily = preview.style.fontFamily = fontSelect.value;
+        editor.style.fontSize = preview.style.fontSize = sizeSelect.value;
+        localStorage.setItem('webmarkus_font', fontSelect.value);
+        localStorage.setItem('webmarkus_size', sizeSelect.value);
+    }
+
+    function render() {
+        const text = editor.value;
+        document.getElementById('wordCount').textContent = `Слов: ${text.trim() ? text.trim().split(/\s+/).length : 0}`;
+        document.getElementById('charCount').textContent = `Символов: ${text.length}`;
+
+        const codes = [];
+        let html = escapeHTML(text);
+
+        html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (m, l, code) => {
+            const id = `_CB_${codes.length}_`;
+            codes.push(`<pre><code>${code.trim()}</code></pre>`);
+            return id;
+        }).replace(/`([^`\n]+?)`/g, (m, code) => {
+            const id = `_IN_${codes.length}_`;
+            codes.push(`<code>${code}</code>`);
+            return id;
+        });
+
+        html = html
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
+            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+            .replace(/\*(.*?)\*/g, '<i>$1</i>')
+            .replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/gim, '<u>$1</u>')
+            .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
+            .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
+            .replace(/^-\s(.*$)/gim, '<ul><li>$1</li></ul>')
+            .replace(/\n/gim, '<br>')
+            .replace(/<\/ul><br><ul>/gim, '');
+
+        codes.forEach((v, i) => { html = html.replace(`_CB_${i}_`, v).replace(`_IN_${i}_`, v); });
+        preview.innerHTML = html;
+        localStorage.setItem('webmarkus_data', text);
+    }
+
+    function initSearch() {
+        const query = document.getElementById('findInput').value.toLowerCase();
+        const text = editor.value.toLowerCase();
+        searchMatches = []; currentMatchIdx = -1;
+        if (query) {
+            let pos = 0;
+            while ((pos = text.indexOf(query, pos)) !== -1) {
+                searchMatches.push(pos);
+                pos += query.length;
+            }
+        }
+        updateSearchUI();
+    }
+
+    function updateSearchUI() {
+        const stats = document.getElementById('searchStats');
+        if (searchMatches.length > 0) {
+            if (currentMatchIdx === -1) currentMatchIdx = 0;
+            stats.textContent = `${currentMatchIdx + 1} / ${searchMatches.length}`;
+            const queryLen = document.getElementById('findInput').value.length;
+            editor.setSelectionRange(searchMatches[currentMatchIdx], searchMatches[currentMatchIdx] + queryLen);
+            editor.focus();
+        } else { stats.textContent = "0 / 0"; }
+    }
+
+    function navSearch(dir) {
+        if (!searchMatches.length) return;
+        currentMatchIdx = (currentMatchIdx + dir + searchMatches.length) % searchMatches.length;
+        updateSearchUI();
+    }
+
+    function execReplace(all) {
+        const query = document.getElementById('findInput').value;
+        const repl = document.getElementById('replaceInput').value;
+        if (!query) return;
+        if (all) { editor.value = editor.value.split(query).join(repl); }
+        else if (currentMatchIdx >= 0) {
+            editor.setRangeText(repl, searchMatches[currentMatchIdx], searchMatches[currentMatchIdx] + query.length, 'select');
+        }
+        render(); initSearch();
+    }
+
+    function toggleSearch() {
+        const s = document.getElementById('searchBar');
+        const isOpen = (s.style.display === 'flex');
+        s.style.display = isOpen ? 'none' : 'flex';
+        if (!isOpen) { document.getElementById('findInput').focus(); initSearch(); }
+    }
+
+    function exportHTML() {
+        const styles = document.getElementsByTagName('style')[0].outerHTML;
+        const content = preview.innerHTML;
+        const fullHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">${styles}</head><body><div class="preview" style="display:block">${content}</div></body></html>`;
+        const blob = new Blob([fullHTML], {type: 'text/html'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'webmarkus_export.html';
+        a.click();
+    }
+
+    editor.onscroll = () => {
+        if (isSyncing) return;
+        isSyncing = true;
+        preview.scrollTop = (editor.scrollTop / (editor.scrollHeight - editor.clientHeight)) * (preview.scrollHeight - preview.clientHeight);
+        setTimeout(() => isSyncing = false, 50);
+    };
+
+    window.onkeydown = e => {
+        const key = e.key.toLowerCase();
+        // Ctrl + Alt + F (Поиск)
+        if (e.ctrlKey && e.altKey && key === 'f') { e.preventDefault(); toggleSearch(); }
+        // Ctrl + Alt + P (Печать) - ВОССТАНОВЛЕНО
+        if (e.ctrlKey && e.altKey && key === 'p') { e.preventDefault(); window.print(); }
+
+        if (e.altKey) {
+            const actions = {
+                's':()=>exportFile('md'),
+                'o':()=>document.getElementById('fileInput').click(),
+                'b':()=>insertMD('**','**'),
+                'i':()=>insertMD('*','*'),
+                'u':()=>insertMD('<u>','</u>'),
+                'n':()=>newDoc(),
+                '/':()=>insertMD('`','`')
+            };
+            if (actions[key]) { e.preventDefault(); actions[key](); }
+        }
+    };
+
+    function insertMD(b, a) {
+        const s = editor.selectionStart, e = editor.selectionEnd;
+        editor.setRangeText(b + editor.value.substring(s, e) + a, s, e, 'end');
+        if (s === e) editor.setSelectionRange(s + b.length, s + b.length);
+        editor.focus(); render();
+    }
+
+    function toggleTheme() {
+        document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('webmarkus_theme', document.body.dataset.theme);
+    }
+
+    function exportFile(t) {
+        const blob = new Blob([editor.value], {type: 'text/plain'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `webmarkus.md`; a.click();
+    }
+
+    function newDoc() { if(confirm('Очистить всё?')) { editor.value = ''; render(); } }
+
+    document.getElementById('fileInput').onchange = e => {
+        const reader = new FileReader();
+        reader.onload = res => { editor.value = res.target.result; render(); };
+        reader.readAsText(e.target.files[0]);
+    };
+
+    editor.oninput = render;
+    window.onload = () => {
+        document.body.dataset.theme = localStorage.getItem('webmarkus_theme') || 'light';
+        editor.value = localStorage.getItem('webmarkus_data') || '';
+        if(localStorage.getItem('webmarkus_font')) fontSelect.value = localStorage.getItem('webmarkus_font');
+        if(localStorage.getItem('webmarkus_size')) sizeSelect.value = localStorage.getItem('webmarkus_size');
+        updateStyle(); render();
+    };
+</script>
+</body>
+</html>
