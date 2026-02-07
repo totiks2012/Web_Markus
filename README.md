@@ -2,6 +2,8 @@
 WebMarkus is an ultra-lightweight Markdown editor with live preview, packaged into a single HTML file.
 # WebMarkus 0.26 (Stable)
 
+![Пример окна с WebMarkus](WebMarkus.jpg)
+
 **WebMarkus** — это ультра-легковесный редактор Markdown с живым предпросмотром, упакованный в **один HTML-файл**.
 
 Никаких серверов. Никаких зависимостей. Никакого Node.js.
